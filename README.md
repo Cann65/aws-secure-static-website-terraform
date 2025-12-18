@@ -129,19 +129,17 @@ aws cloudfront create-invalidation --distribution-id <dist-id> --paths "/*"
 ## Evidence Pack
 Files in `infra/docs/evidence/`. Redact account IDs, hosted zone IDs, email addresses, source IPs, access key IDs, request/event IDs before sharing.
 
-| #  | File                                      | Purpose                                               |
-| -- | ----------------------------------------- | ----------------------------------------------------- |
-| 1  | 01-cli-sts-terraformdeployer.png          | CLI session uses TerraformDeployer assumed role (SSO) |
-| 2  | 01-identity-center-assignments.png        | IAM Identity Center assignments / permission sets     |
-| 3  | 02a-terraformdeployer-general.png         | TerraformDeployer permission set overview             |
-| 4  | 02b-terraformdeployer-inline-policy.png   | Inline policy shows scoped permissions                |
-| 5  | 02-terraform-plan-no-changes.png          | Terraform plan shows no drift                         |
-| 6  | 03-cloudtrail-assumerole.png              | CloudTrail logs SSO federation / AssumeRoleWithSAML   |
-| 7  | 04-cloudtrail-terraform-action.png        | CloudTrail logs Terraform-triggered API activity      |
-| 8  | 05a-s3-buckets.png                        | S3 buckets exist (site bucket + tfstate bucket)       |
-| 9  | 05b-cloudfront-distribution.png           | CloudFront distribution deployed                      |
-| 10 | 05c-acm-certificate-issued.png            | ACM certificate issued in us-east-1                   |
-| 11 | 05d-route53-hosted-zone.png               | Route 53 records point to CloudFront                  |
+- ![CLI session (TerraformDeployer)](infra/docs/evidence/01-cli-sts-terraformdeployer.png)
+- ![Identity Center assignments](infra/docs/evidence/01-identity-center-assignments.png)
+- ![TerraformDeployer permission set](infra/docs/evidence/02a-terraformdeployer-general.png)
+- ![TerraformDeployer inline policy](infra/docs/evidence/02b-terraformdeployer-inline-policy.png)
+- ![Terraform plan - no changes](infra/docs/evidence/02-terraform-plan-no-changes.png)
+- ![CloudTrail AssumeRole event](infra/docs/evidence/03-cloudtrail-assumerole.png)
+- ![CloudTrail Terraform action](infra/docs/evidence/04-cloudtrail-terraform-action.png)
+- ![S3 buckets](infra/docs/evidence/05a-s3-buckets.png)
+- ![CloudFront distribution](infra/docs/evidence/05b-cloudfront-distribution.png)
+- ![ACM certificate issued](infra/docs/evidence/05c-acm-certificate-issued.png)
+- ![Route 53 records](infra/docs/evidence/05d-route53-hosted-zone.png)
 
 ---
 
