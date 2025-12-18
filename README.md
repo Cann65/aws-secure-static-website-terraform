@@ -127,51 +127,40 @@ aws cloudfront create-invalidation --distribution-id <dist-id> --paths "/*"
 ---
 
 ## Evidence Pack
-Screenshots live in `infra/docs/evidence/`. Redact account IDs, hosted zone IDs, email addresses, source IPs, access key IDs, and request/event IDs before sharing.
+Screenshots live in `infra/docs/evidence/`. Redact account IDs, hosted zone IDs, email addresses, source IPs, access key IDs, and request/event IDs before sharing. Sie zeigen durchgängig: wer greift zu, mit welchen Rechten, was Terraform macht, und welche Ressourcen tatsächlich existieren.
 
-1) CLI identity (SSO role confirmation)  
-Shows `aws sts get-caller-identity` with an assumed-role ARN for the TerraformDeployer SSO role. Proves commands run under short-lived, scoped credentials.  
-![CLI session uses the TerraformDeployer role (SSO)](infra/docs/evidence/01-cli-sts-terraformdeployer.png)
+- CLI identity (SSO role confirmation): `aws sts get-caller-identity` belegt, dass die Session als kurzlebige TerraformDeployer-Rolle läuft, nicht als Dauer-Admin.  
+  ![CLI session uses the TerraformDeployer role (SSO)](infra/docs/evidence/01-cli-sts-terraformdeployer.png)
 
-2) IAM Identity Center assignments  
-Account assignments and permission sets (TerraformDeployer, WebsiteDeployer, AdministratorAccess). Demonstrates SSO-based access and separation of duties.  
-![IAM Identity Center: account assignments / permission sets](infra/docs/evidence/01-identity-center-assignments.png)
+- IAM Identity Center assignments: Konto-Zuordnungen und Permission Sets (TerraformDeployer, WebsiteDeployer, AdministratorAccess) belegen das SSO-Modell und die Trennung der Rollen.  
+  ![IAM Identity Center: account assignments / permission sets](infra/docs/evidence/01-identity-center-assignments.png)
 
-3) TerraformDeployer permission set (overview)  
-Session duration and provisioning status for the deploy role. Confirms the role is managed as a scoped permission set.  
-![TerraformDeployer permission set configuration](infra/docs/evidence/02a-terraformdeployer-general.png)
+- TerraformDeployer permission set (overview): Konfiguration des Permission Sets inkl. Session-Dauer; zeigt, dass Deploy-Rechte bewusst gekapselt sind.  
+  ![TerraformDeployer permission set configuration](infra/docs/evidence/02a-terraformdeployer-general.png)
 
-4) TerraformDeployer inline policy (least privilege)  
-Inline JSON policy with targeted permissions for S3 (state + site), DynamoDB (lock), Route 53, CloudFront, and ACM. Evidence of scoped access.  
-![TerraformDeployer inline policy (scoped permissions)](infra/docs/evidence/02b-terraformdeployer-inline-policy.png)
+- TerraformDeployer inline policy (least privilege): JSON-Policy mit gezielten Rechten für S3 (State + Site), DynamoDB (Lock), Route 53, CloudFront, ACM. Beweis für “scoped permissions”.  
+  ![TerraformDeployer inline policy (scoped permissions)](infra/docs/evidence/02b-terraformdeployer-inline-policy.png)
 
-5) Terraform plan (no changes)  
-Terraform output ending with “No changes. Your infrastructure matches the configuration.” Confirms idempotency and no drift.  
-![Terraform plan shows no changes](infra/docs/evidence/02-terraform-plan-no-changes.png)
+- Terraform plan (no changes): Ausgabe endet mit “No changes. Your infrastructure matches the configuration.” → idempotent, kein Drift.  
+  ![Terraform plan shows no changes](infra/docs/evidence/02-terraform-plan-no-changes.png)
 
-6) CloudTrail federation event (AssumeRoleWithSAML)  
-CloudTrail entry for the SSO session creation, with timestamp and role ARN. Proves sessions are logged and traceable.  
-![CloudTrail logs the AssumeRoleWithSAML event](infra/docs/evidence/03-cloudtrail-assumerole.png)
+- CloudTrail federation event (AssumeRoleWithSAML): zeigt die SSO-Session-Erzeugung mit Zeitstempel und Rollen-ARN; Zugriffe sind auditierbar.  
+  ![CloudTrail logs the AssumeRoleWithSAML event](infra/docs/evidence/03-cloudtrail-assumerole.png)
 
-7) CloudTrail API activity (Terraform)  
-CloudTrail events for Terraform-driven API calls (e.g., CloudFront). Shows infra actions are auditable.  
-![CloudTrail logs Terraform-triggered API calls](infra/docs/evidence/04-cloudtrail-terraform-action.png)
+- CloudTrail API activity (Terraform): CloudFront-API-Aufrufe durch Terraform sind in CloudTrail sichtbar; Änderungen sind nachvollziehbar.  
+  ![CloudTrail logs Terraform-triggered API calls](infra/docs/evidence/04-cloudtrail-terraform-action.png)
 
-8) S3 buckets (content + state)  
-Bucket list including the website bucket and the Terraform state bucket, with regions and timestamps. Separates app content from state storage.  
-![S3 buckets: site bucket and tfstate bucket exist](infra/docs/evidence/05a-s3-buckets.png)
+- S3 buckets (content + state): Website-Bucket und tfstate-Bucket getrennt, mit Region/Zeitstempel; saubere Trennung von Content und State.  
+  ![S3 buckets: site bucket and tfstate bucket exist](infra/docs/evidence/05a-s3-buckets.png)
 
-9) CloudFront distribution  
-Distribution entry with custom domains and S3 origin, status enabled/deployed. Confirms CDN front door is active.  
-![CloudFront distribution deployed and active](infra/docs/evidence/05b-cloudfront-distribution.png)
+- CloudFront distribution: Distribution aktiv, eigene Domains hinterlegt, Origin ist das S3-Backend; CDN-Frontdoor steht.  
+  ![CloudFront distribution deployed and active](infra/docs/evidence/05b-cloudfront-distribution.png)
 
-10) ACM certificate (us-east-1 for CloudFront)  
-Certificate status: Issued; covers root + www; in us-east-1. Matches CloudFront requirements.  
-![ACM certificate issued in us-east-1 for CloudFront](infra/docs/evidence/05c-acm-certificate-issued.png)
+- ACM certificate (us-east-1 für CloudFront): Zertifikat “Issued” für Root + www in us-east-1; erfüllt die CloudFront-Vorgabe.  
+  ![ACM certificate issued in us-east-1 for CloudFront](infra/docs/evidence/05c-acm-certificate-issued.png)
 
-11) Route 53 alias records to CloudFront  
-A/AAAA alias records for root and www pointing to the CloudFront distribution. Completes DNS -> CDN -> S3 chain.  
-![Route 53 alias records pointing to CloudFront](infra/docs/evidence/05d-route53-hosted-zone.png)
+- Route 53 alias records zu CloudFront: A/AAAA-Alias für Root und www verweisen auf die Distribution; DNS → CDN → S3-Kette ist geschlossen.  
+  ![Route 53 alias records pointing to CloudFront](infra/docs/evidence/05d-route53-hosted-zone.png)
 
 ---
 
