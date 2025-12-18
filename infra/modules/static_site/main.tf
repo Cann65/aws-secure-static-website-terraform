@@ -7,6 +7,9 @@ locals {
     var.domain_name,
     "www.${var.domain_name}"
   ])
+
+  s3_origin_domain = aws_s3_bucket.site.bucket_regional_domain_name
+  origin_id        = "s3-${aws_s3_bucket.site.bucket}"
 }
 
 resource "aws_s3_bucket" "site" {
@@ -61,8 +64,8 @@ resource "aws_acm_certificate_validation" "cert" {
 
 
 resource "aws_cloudfront_origin_access_control" "oac" {
-  name        = "oac-canyildiz.de.s3.eu-central-1.amazonaws.com-mj5y5jwcmds"
-  description = "Created by CloudFront"
+  name        = "oac-${var.domain_name}"
+  description = "OAC for ${var.domain_name}"
 
   origin_access_control_origin_type = "s3"
   signing_behavior                  = "always"
@@ -80,15 +83,15 @@ resource "aws_cloudfront_distribution" "cdn" {
   ]
 
   origin {
-    domain_name              = "canyildiz.de.s3.eu-central-1.amazonaws.com"
-    origin_id                = "canyildiz.de.s3.eu-central-1.amazonaws.com-mj5y35pk14n"
+    domain_name              = local.s3_origin_domain
+    origin_id                = local.origin_id
     origin_access_control_id = aws_cloudfront_origin_access_control.oac.id
   }
 
   default_cache_behavior {
-    allowed_methods  = ["GET", "HEAD"]
-    cached_methods   = ["GET", "HEAD"]
-    target_origin_id = "canyildiz.de.s3.eu-central-1.amazonaws.com-mj5y35pk14n"
+    allowed_methods        = ["GET", "HEAD"]
+    cached_methods         = ["GET", "HEAD"]
+    target_origin_id       = local.origin_id
     viewer_protocol_policy = "redirect-to-https"
     compress               = true
     cache_policy_id        = "658327ea-f89d-4fab-a63d-7e88639e58f6"
@@ -109,7 +112,7 @@ resource "aws_cloudfront_distribution" "cdn" {
   }
 
   viewer_certificate {
-    acm_certificate_arn = aws_acm_certificate.cert.arn
+    acm_certificate_arn      = aws_acm_certificate.cert.arn
     ssl_support_method       = "sni-only"
     minimum_protocol_version = "TLSv1.3_2025"
   }

@@ -1,6 +1,7 @@
 module "static_site" {
   source = "../../modules/static_site"
-enable_acm_validation = false
+
+  enable_acm_validation = false
 
   domain_name      = var.domain_name
   hosted_zone_name = var.hosted_zone_name
