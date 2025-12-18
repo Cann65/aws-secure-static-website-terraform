@@ -8,7 +8,7 @@ Secure-by-default hosting for static site build output (React/Vite/Next.js expor
 
 ---
 
-## Proof in 30 seconds
+## ⚡ Proof in 30 seconds
 
 - Identity: `aws sts get-caller-identity` shows the CLI is using a dedicated TerraformDeployer SSO role -> `infra/docs/evidence/01-cli-sts-terraformdeployer.png`
 - Idempotency / drift: `terraform plan` shows `No changes` -> `infra/docs/evidence/02-terraform-plan-no-changes.png`
@@ -16,7 +16,7 @@ Secure-by-default hosting for static site build output (React/Vite/Next.js expor
 
 ---
 
-## Table of contents
+## 📚 Table of contents
 
 - [What this project demonstrates](#what-this-project-demonstrates)
 - [Architecture](#architecture)
@@ -33,7 +33,7 @@ Secure-by-default hosting for static site build output (React/Vite/Next.js expor
 
 ---
 
-## What this project demonstrates
+## 🎯 What this project demonstrates
 
 ### Cloud fundamentals (end-to-end)
 - CloudFront + S3 + Route 53 + ACM wired together
@@ -51,7 +51,7 @@ Secure-by-default hosting for static site build output (React/Vite/Next.js expor
 
 ---
 
-## Architecture
+## 📐 Architecture
 
 ```mermaid
 flowchart LR
@@ -78,7 +78,7 @@ README.md
 
 ---
 
-## Prerequisites
+## ✅ Prerequisites
 
 - Terraform >= 1.6
 - AWS Provider >= 5.x
@@ -89,7 +89,7 @@ README.md
 
 ---
 
-## Configuration
+## ⚙️ Configuration
 
 Defaults live in `infra/envs/prod/variables.tf` (override via `terraform.tfvars` or `-var`).
 
@@ -107,19 +107,19 @@ Docs automation: run `terraform-docs` against `infra/envs/prod` if you want gene
 
 ---
 
-## ACM DNS validation (optional)
+## 🔐 ACM DNS validation (optional)
 
 If `enable_acm_validation = true`, Terraform creates the required DNS validation records in Route 53 and performs certificate validation automatically.
 
 ---
 
-## WAF (optional)
+## 🛡️ WAF (optional)
 
 If you attach a WAF, `web_acl_id` must be a WAFv2 WebACL ARN with `scope = CLOUDFRONT` (managed in `us-east-1`). A minimal baseline module is provided in `infra/modules/waf_baseline/`; pass its ARN into `web_acl_id` when you want it enforced.
 
 ---
 
-## Deploy
+## 🚀 Deploy
 
 PowerShell (Windows + AWS SSO):
 
@@ -154,7 +154,7 @@ Typical outputs after apply:
 
 ---
 
-## Upload your site
+## 📦 Upload your site
 
 Basic:
 
@@ -182,13 +182,13 @@ aws cloudfront create-invalidation --distribution-id <dist-id> --paths "/*"
 
 ---
 
-## Single-page apps (SPA)
+## 🧩 Single-page apps (SPA)
 
 CloudFront is configured to map 403/404 to `/index.html`, so deep links still work on refresh.
 
 ---
 
-## Evidence pack (screenshots)
+## 🧾 Evidence pack (screenshots)
 
 All evidence images live in `infra/docs/evidence/`.
 
@@ -199,50 +199,61 @@ The evidence follows the flow: Identity -> Access model -> Permissions -> Terraf
 1) CLI identity (who is Terraform acting as?)  
    File: `infra/docs/evidence/01-cli-sts-terraformdeployer.png`  
    Shows `aws sts get-caller-identity` confirming the CLI session is an assumed SSO role (TerraformDeployer). This proves deployments are performed with short-lived federated credentials (SSO), not permanent IAM keys, and not admin by default.
+   ![CLI identity](infra/docs/evidence/01-cli-sts-terraformdeployer.png)
 
 2) IAM Identity Center assignments (how access is granted)  
    File: `infra/docs/evidence/01-identity-center-assignments.png`  
    Shows the AWS account assignment and which permission sets are granted to the user. This documents a clean SSO access model with separation of duties (infra deploy vs. content upload vs. admin-only tasks).
+   ![Identity Center assignments](infra/docs/evidence/01-identity-center-assignments.png)
 
 3) TerraformDeployer permission set (session governance)  
    File: `infra/docs/evidence/02a-terraformdeployer-general.png`  
    Shows TerraformDeployer permission set configuration (for example, session duration). This demonstrates the role is centrally managed and designed for controlled infrastructure work.
+    ![TerraformDeployer permission set](infra/docs/evidence/02a-terraformdeployer-general.png)
 
 4) TerraformDeployer inline policy (least privilege proof)  
    File: `infra/docs/evidence/02b-terraformdeployer-inline-policy.png`  
    Shows the actual policy statements attached to TerraformDeployer. Look for scope-limited access to the state bucket, lock table, Route 53, CloudFront, and ACM - permissions tailored to this stack.
+    ![TerraformDeployer inline policy](infra/docs/evidence/02b-terraformdeployer-inline-policy.png)
 
 5) Terraform plan (idempotency / drift check)  
    File: `infra/docs/evidence/02-terraform-plan-no-changes.png`  
    Shows `terraform plan` reporting `No changes`. This proves the deployed infrastructure matches the Terraform configuration and reduces configuration drift risk.
+   ![Terraform plan](infra/docs/evidence/02-terraform-plan-no-changes.png)
 
 6) CloudTrail SSO role assumption (audit trail)  
    File: `infra/docs/evidence/03-cloudtrail-assumerole.png`  
    Shows a CloudTrail event for `AssumeRoleWithSAML`, proving the session was established via SSO federation. This is important because it is a verifiable audit record: who assumed what role, when, and from where.
+   ![CloudTrail assume role](infra/docs/evidence/03-cloudtrail-assumerole.png)
 
 7) CloudTrail Terraform activity (changes are traceable)  
    File: `infra/docs/evidence/04-cloudtrail-terraform-action.png`  
    Shows CloudTrail logging API calls (for example, CloudFront/S3/Route 53 reads/writes) tied to the TerraformDeployer session. This proves infrastructure operations are logged and attributable.
+   ![CloudTrail Terraform activity](infra/docs/evidence/04-cloudtrail-terraform-action.png)
 
 8) S3 buckets (state + content separation)  
    File: `infra/docs/evidence/05a-s3-buckets.png`  
    Shows the content bucket and the Terraform state bucket as separate resources. This separation supports cleaner lifecycle management and reduces the blast radius for mistakes.
+   ![S3 buckets](infra/docs/evidence/05a-s3-buckets.png)
 
 9) CloudFront distribution (secure delivery front door)  
    File: `infra/docs/evidence/05b-cloudfront-distribution.png`  
    Shows the CloudFront distribution is deployed and configured with custom domain aliases and an S3 origin. This is the front door that enforces HTTPS and uses OAC to keep S3 private.
+   ![CloudFront distribution](infra/docs/evidence/05b-cloudfront-distribution.png)
 
 10) ACM certificate (TLS proof)  
     File: `infra/docs/evidence/05c-acm-certificate-issued.png`  
     Shows the ACM certificate in `us-east-1` with status `Issued` and domain coverage (root + www). This proves the TLS chain is properly set up for CloudFront.
+    ![ACM certificate issued](infra/docs/evidence/05c-acm-certificate-issued.png)
 
 11) Route 53 hosted zone + records (DNS chain proof)  
     File: `infra/docs/evidence/05d-route53-hosted-zone.png`  
     Shows Route 53 records (A/AAAA alias) pointing the domain to CloudFront. This completes the chain: Domain -> Route 53 -> CloudFront -> private S3.
+    ![Route 53 hosted zone](infra/docs/evidence/05d-route53-hosted-zone.png)
 
 ---
 
-## CI
+## ✅ CI
 
 The workflow `.github/workflows/terraform-ci.yml` runs on push/PR:
 
@@ -254,7 +265,7 @@ No AWS credentials required - this is a lightweight quality gate to catch syntax
 
 ---
 
-## Roadmap
+## 🧭 Roadmap
 
 - Enable CloudFront + S3 access logging and query via Athena
 - Add cost guardrails (Budgets + alarms)
