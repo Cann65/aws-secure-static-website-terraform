@@ -129,17 +129,17 @@ aws cloudfront create-invalidation --distribution-id <dist-id> --paths "/*"
 ## Evidence Pack
 Files in `infra/docs/evidence/`. Redact account IDs, hosted zone IDs, email addresses, source IPs, access key IDs, request/event IDs before sharing.
 
-- ![CLI session (TerraformDeployer)](infra/docs/evidence/01-cli-sts-terraformdeployer.png)
-- ![Identity Center assignments](infra/docs/evidence/01-identity-center-assignments.png)
-- ![TerraformDeployer permission set](infra/docs/evidence/02a-terraformdeployer-general.png)
-- ![TerraformDeployer inline policy](infra/docs/evidence/02b-terraformdeployer-inline-policy.png)
-- ![Terraform plan - no changes](infra/docs/evidence/02-terraform-plan-no-changes.png)
-- ![CloudTrail AssumeRole event](infra/docs/evidence/03-cloudtrail-assumerole.png)
-- ![CloudTrail Terraform action](infra/docs/evidence/04-cloudtrail-terraform-action.png)
-- ![S3 buckets](infra/docs/evidence/05a-s3-buckets.png)
-- ![CloudFront distribution](infra/docs/evidence/05b-cloudfront-distribution.png)
-- ![ACM certificate issued](infra/docs/evidence/05c-acm-certificate-issued.png)
-- ![Route 53 records](infra/docs/evidence/05d-route53-hosted-zone.png)
+- ![CLI session uses the TerraformDeployer role (SSO)](infra/docs/evidence/01-cli-sts-terraformdeployer.png)
+- ![IAM Identity Center: account assignments / permission sets](infra/docs/evidence/01-identity-center-assignments.png)
+- ![TerraformDeployer permission set configuration](infra/docs/evidence/02a-terraformdeployer-general.png)
+- ![TerraformDeployer inline policy (scoped permissions)](infra/docs/evidence/02b-terraformdeployer-inline-policy.png)
+- ![Terraform plan shows no changes](infra/docs/evidence/02-terraform-plan-no-changes.png)
+- ![CloudTrail logs the AssumeRoleWithSAML event](infra/docs/evidence/03-cloudtrail-assumerole.png)
+- ![CloudTrail logs Terraform-triggered API calls](infra/docs/evidence/04-cloudtrail-terraform-action.png)
+- ![S3 buckets: site bucket and tfstate bucket exist](infra/docs/evidence/05a-s3-buckets.png)
+- ![CloudFront distribution deployed and active](infra/docs/evidence/05b-cloudfront-distribution.png)
+- ![ACM certificate issued in us-east-1 for CloudFront](infra/docs/evidence/05c-acm-certificate-issued.png)
+- ![Route 53 alias records pointing to CloudFront](infra/docs/evidence/05d-route53-hosted-zone.png)
 
 ---
 
