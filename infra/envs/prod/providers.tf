@@ -12,7 +12,7 @@ provider "aws" {
   region = "eu-central-1"
 }
 
-# Für ACM Zertifikate für CloudFront
+# Fuer ACM Zertifikate fuer CloudFront
 provider "aws" {
   alias  = "use1"
   region = "us-east-1"

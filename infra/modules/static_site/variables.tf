@@ -15,4 +15,12 @@ variable "bucket_name" {
 variable "enable_acm_validation" {
   type    = bool
   default = false
+
+  description = "Whether to create DNS validation records and validate the ACM certificate automatically."
+}
+
+variable "web_acl_id" {
+  type        = string
+  default     = null
+  description = "Optional WAF WebACL ARN to attach to the CloudFront distribution."
 }

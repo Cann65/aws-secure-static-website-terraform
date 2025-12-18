@@ -117,7 +117,7 @@ resource "aws_cloudfront_distribution" "cdn" {
     minimum_protocol_version = "TLSv1.3_2025"
   }
 
-  web_acl_id = "arn:aws:wafv2:us-east-1:258386773034:global/webacl/CreatedByCloudFront-b9eb3d76/bfa499df-9a43-4b5e-83c4-0a26fddb1378"
+  web_acl_id = var.web_acl_id
 
   restrictions {
     geo_restriction {
