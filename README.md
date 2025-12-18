@@ -6,6 +6,18 @@
 
 Terraform setup for hosting static sites (React, Vite, Next.js builds, whatever) on AWS. CloudFront in front, private S3 bucket behind it, Route 53 for DNS, ACM for the certificate. The repo includes screenshots showing everything actually works.
 
+## Proof in 30 seconds
+
+- Evidence #1: CLI identity (TerraformDeployer) - see `infra/docs/evidence/01-cli-sts-terraformdeployer.png`.
+- Evidence #5: Terraform plan shows `No changes` - see `infra/docs/evidence/02-terraform-plan-no-changes.png`.
+- Evidence #6/#7: CloudTrail audit for AssumeRole + CloudFront API calls - see `infra/docs/evidence/03-cloudtrail-assumerole.png` and `infra/docs/evidence/04-cloudtrail-terraform-action.png`.
+
+## Quick start
+
+1) `git clone https://github.com/Cann65/aws-secure-static-website-terraform.git`
+2) `cd infra/envs/prod` and copy `terraform.tfvars.example` to `terraform.tfvars`, then fill your domain/bucket/zone values (set `enable_acm_validation = true` to auto-create DNS validation records).
+3) `aws sso login --profile <profile>` and run `terraform init && terraform plan -out plan.out && terraform apply plan.out`
+
 ## What this covers
 
 CloudFront + S3 + Route 53 + ACM wired together. Remote Terraform state in S3 with optional DynamoDB locking. The module is reusable, just swap out the variables for a different domain.
@@ -22,7 +34,7 @@ flowchart LR
     R53[Route 53] -->|Alias A| CF
 ```
 
-S3 stays private. CloudFront is the only thing that reads from it.
+S3 stays private. CloudFront is the only thing that reads from it. Export a PNG/SVG version of the diagram to `infra/docs/architecture/` if you want to embed it elsewhere.
 
 ## Repo structure
 
@@ -39,6 +51,12 @@ README.md
 
 Terraform >= 1.6, AWS provider >= 5.x, a Route 53 hosted zone, an S3 bucket for state (DynamoDB lock optional), and AWS credentials configured (SSO recommended).
 
+ACM certificates for CloudFront must live in `us-east-1`, which is why there is an aliased provider (`aws.use1`) alongside your primary region provider.
+
+## Costs
+
+Most of this stays in the AWS free tier unless CloudFront traffic gets heavy. Expect minimal S3 + Route 53 costs; add budget alerts if you plan for higher traffic.
+
 ## Configuration
 
 Defaults are in `infra/envs/prod/variables.tf`. Override with `-var` or a tfvars file.
@@ -52,6 +70,8 @@ Defaults are in `infra/envs/prod/variables.tf`. Override with `-var` or a tfvars
 | `web_acl_id`            | WAFv2 WebACL ARN (optional)              | `arn:aws:wafv2:...` |
 
 With `enable_acm_validation = true` Terraform handles certificate validation automatically. WAF needs to be CLOUDFRONT scoped in us-east-1.
+
+Docs automation: run `terraform-docs` against `infra/envs/prod` if you want the inputs/outputs table generated instead of manual edits.
 
 ## Deploy
 
@@ -106,13 +126,37 @@ Invalidate if needed:
 aws cloudfront create-invalidation --distribution-id <id> --paths "/*"
 ```
 
+## Single-page apps
+
+CloudFront already rewrites 403/404 responses to `/index.html`, so SPA deep links keep working on refreshes.
+
 ## Security
 
 S3 is private, CloudFront reads via OAC. HTTPS only with TLS 1.2+. Terraform uses a scoped SSO role, not admin. CloudTrail logs all API calls.
 
+### WAF (optional)
+
+If you want a baseline AWS WAF attached to CloudFront, use the optional `waf_baseline` module and pass its ARN into `web_acl_id`:
+
+```hcl
+module "waf_baseline" {
+  source = "../../modules/waf_baseline"
+  name   = "secure-static-site"
+
+  providers = {
+    aws = aws.use1 # CloudFront/WAF scope lives in us-east-1
+  }
+}
+
+module "static_site" {
+  # ...
+  web_acl_id = module.waf_baseline.web_acl_arn
+}
+```
+
 ## Evidence
 
-Screenshots in `infra/docs/evidence/`. They go through: identity → permissions → Terraform → audit logs → deployed resources.
+Screenshots in `infra/docs/evidence/`. They go through: identity -> permissions -> Terraform -> audit logs -> deployed resources.
 
 If you fork this, redact account IDs, hosted zone IDs, IPs, and emails before sharing publicly.
 
@@ -178,7 +222,7 @@ Certificate in us-east-1 (CloudFront requirement), issued, covers root and www.
 
 ### Route 53 records
 
-A/AAAA alias records for root and www pointing to CloudFront. Domain → Route 53 → CloudFront → S3.
+A/AAAA alias records for root and www pointing to CloudFront. Domain -> Route 53 -> CloudFront -> S3.
 
 ![Route 53 records](infra/docs/evidence/05d-route53-hosted-zone.png)
 
@@ -195,7 +239,7 @@ No AWS credentials needed, just syntax checks.
 ## Roadmap
 
 - [ ] Access logging + Athena
-- [ ] WAF rules
 - [ ] Budget alerts
 - [ ] tflint/tfsec/checkov in CI
-- [ ] terraform.tfvars.example
+- [x] WAF baseline module
+- [x] terraform.tfvars.example
