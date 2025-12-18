@@ -31,13 +31,13 @@ This repository is meant to be understood in minutes and verified via screenshot
 ---
 
 ## Repository structure
-- `infra/modules/static_site` – Reusable Terraform module (S3 bucket, CloudFront distribution, ACM certificate, Route53 records).
-- `infra/envs/prod` – Example prod environment consuming the module, including remote backend config.
-- `infra/docs/evidence` – Screenshots proving the deployment and access model.
+- `infra/modules/static_site` - Reusable Terraform module (S3 bucket, CloudFront distribution, ACM certificate, Route53 records).
+- `infra/envs/prod` - Example prod environment consuming the module, including remote backend config.
+- `infra/docs/evidence` - Screenshots proving the deployment and access model.
 
 ---
 
-## Architecture (high level)
+## Architecture
 ```
 Users
   |
