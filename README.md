@@ -1,55 +1,86 @@
-AWS Secure Static Website - Terraform
-=====================================
+# AWS Secure Static Website (Terraform)
 
-Dieses Projekt stellt eine sichere, statische Website auf AWS bereit. Statische Dateien liegen in S3 und werden nur ueber CloudFront mit TLS ausgeliefert. Zertifikate kommen aus ACM (us-east-1), DNS wird mit Route53 verwaltet.
+A concise AWS infrastructure project that delivers a **secure-by-default static website** with **least-privilege Terraform access**.
 
-Verzeichnisstruktur
--------------------
-- `infra/modules/static_site`: Modul mit S3-Bucket, CloudFront, ACM-Zertifikat und Route53-Records.
-- `infra/envs/prod`: Produktiv-Stack, der das Modul konsumiert und das Remote-Backend konfiguriert.
+- **Origin:** Private S3 bucket (no public website hosting)
+- **CDN:** CloudFront with **Origin Access Control (OAC)**
+- **TLS:** HTTPS-only via ACM certificate (must be in `us-east-1` for CloudFront)
+- **DNS:** Route 53 alias records
+- **IaC:** Terraform
+- **Access model:** AWS IAM Identity Center (SSO) with a scoped **TerraformDeployer** permission set
 
-Architektur (Modul `static_site`)
----------------------------------
-- S3-Bucket fuer Website-Inhalte (`aws_s3_bucket.site`) mit Public-Access-Block; Zugriff nur via CloudFront.
-- CloudFront-Distribution mit Origin Access Control (OAC), HTTPS-Redirect, Default Root `index.html`; Origin-Domain wird aus dem Bucket abgeleitet (keine Hardcodes), 403/404 werden auf `index.html` gemappt (SPA-tauglich).
-- ACM-Zertifikat in `us-east-1` fuer `domain_name` und `www.domain_name`; DNS-Validierung optional automatisierbar.
-- Route53 A-Records fuer Root- und `www`-Domain zeigen als Alias auf CloudFront.
-- Bucket-Policy erlaubt nur CloudFront als Principal (`AWS:SourceArn`-Bedingung).
+This repository is meant to be understood in minutes and verified via screenshots.
 
-Voraussetzungen
----------------
-- Terraform >= 1.6 (siehe `infra/envs/prod/providers.tf`).
-- AWS Provider >= 5.0.
-- AWS-Konto mit bestehender Route53-Hosted-Zone fuer die Ziel-Domain.
-- S3-Bucket fuer das Terraform-Backend (siehe unten).
-- AWS-Credentials lokal konfiguriert (z.B. `AWS_PROFILE`).
+---
 
-Remote Backend
---------------
-Konfiguration in `infra/envs/prod/backend.tf`:
-- Bucket: `tfstate-canyildiz-prod`
-- Key: `secure-website/prod/terraform.tfstate`
-- Region: `eu-central-1`
+## What this project demonstrates
 
-Lege den Bucket (und ggf. ein DynamoDB-Lock, falls du kein Lockfile nutzen willst) an, bevor du `terraform init` ausfuehrst.
+### Security & platform fundamentals
+- Private S3; CloudFront is the only reader via OAC.
+- HTTPS-only delivery with a modern TLS policy.
+- Least privilege for IaC (dedicated SSO role instead of broad admin).
+- Auditable changes (CloudTrail evidence included).
 
-Konfiguration (prod)
---------------------
-Standardwerte in `infra/envs/prod/variables.tf`:
-- `domain_name` / `hosted_zone_name`: `canyildiz.de`
-- `bucket_name`: `canyildiz.de`
-- `enable_acm_validation`: `false` (siehe unten)
-- `web_acl_id`: `null` (kein WAF angehaengt; per ARN optional aktivierbar)
+### Practical AWS building blocks
+- S3 + CloudFront + ACM + Route53 working together.
+- Remote Terraform state in S3 (optional DynamoDB lock).
+- Parameterized module inputs (domain, bucket, optional WAF, optional ACM DNS validation).
 
-Anpassungen kannst du per `-var` oder `*.tfvars` uebergeben.
+> Note: The website content can be any static build (React, etc.). After `npm run build`, the output can be synced to S3 and served via CloudFront.
 
-Hinweis zu ACM-Validierung
---------------------------
-Setze `enable_acm_validation=true`, wenn die DNS-Validierung automatisch erfolgen soll. Dann werden die noetigen CNAME-Records in Route53 angelegt und `aws_acm_certificate_validation` ausgefuehrt.
+---
 
-Deployment
-----------
-Aus `infra/envs/prod`:
+## Repository structure
+- `infra/modules/static_site` – Reusable Terraform module (S3 bucket, CloudFront distribution, ACM certificate, Route53 records).
+- `infra/envs/prod` – Example prod environment consuming the module, including remote backend config.
+- `infra/docs/evidence` – Screenshots proving the deployment and access model.
+
+---
+
+## Architecture (high level)
+```
+Users
+  |
+  v
+CloudFront (HTTPS, caching, OAC)
+  |
+  v
+S3 bucket (private, no public access)
+
+ACM (us-east-1) -> CloudFront certificate
+Route53 -> Alias A records -> CloudFront
+```
+
+---
+
+## Prerequisites
+- Terraform `>= 1.6`
+- AWS provider `>= 5.x`
+- Existing Route53 hosted zone for your domain
+- Remote backend bucket for Terraform state (plus optional DynamoDB for locking)
+- AWS credentials configured locally (recommended: AWS SSO / IAM Identity Center)
+
+---
+
+## Configuration
+Defaults live in `infra/envs/prod/variables.tf` (override via `-var` or `*.tfvars`):
+
+- `domain_name` (e.g., `example.com`)
+- `hosted_zone_name` (e.g., `example.com`)
+- `bucket_name` (e.g., `example.com`)
+- `enable_acm_validation` (bool, default `false`)
+- `web_acl_id` (string, default `null`)
+
+### About ACM validation
+If `enable_acm_validation=true`, Terraform creates DNS validation records in Route 53 and runs `aws_acm_certificate_validation`.
+
+### About WAF (optional)
+If you attach a WAF, `web_acl_id` must be a **WAFv2 WebACL ARN with Scope `CLOUDFRONT`** (commonly managed in `us-east-1`).
+
+---
+
+## Deploy (prod example)
+From the repository root:
 ```powershell
 cd infra/envs/prod
 terraform init
@@ -57,26 +88,56 @@ terraform plan -out plan.out
 terraform apply plan.out
 ```
 
-Outputs nach `apply`:
-- `cloudfront_domain`: CloudFront-Domain.
-- `bucket_name`: S3-Bucket fuer deine statischen Dateien.
+After apply, Terraform outputs typically include:
+- `cloudfront_domain`: CloudFront distribution domain
+- `bucket_name`: S3 bucket for site assets
 
-Website-Inhalte hochladen
--------------------------
-Beispiel (Bucket ggf. anpassen):
+### Upload website content
+Adjust paths/bucket as needed:
 ```bash
-aws s3 sync ./dist s3://canyildiz.de/ --delete
+aws s3 sync ./dist s3://<your-bucket-name>/ --delete
 ```
 
-Sicherheit & Betrieb
---------------------
-- Direkter S3-Public-Zugriff ist blockiert; Auslieferung nur ueber CloudFront-OAC.
-- CloudFront TLS-Minimum: `TLSv1.3_2025`.
-- Optionaler WAF: setze `web_acl_id` auf die ARN deiner WAFv2-WebACL mit Scope `CLOUDFRONT` (typisch in us-east-1), sonst bleibt kein WAF angehaengt.
-- 403/404 liefern `index.html` (SPA geeignet).
+---
 
-Behoben / Verbesserungen
-------------------------
-- Origin-Domain wird aus dem Bucket abgeleitet (keine Hardcodes).
-- Origin-ID und OAC-Name sind generisch pro Domain.
-- WAF-Anbindung ist optional via `web_acl_id`.
+## Security decisions (why)
+- **Private S3 + CloudFront OAC:** Prevents direct public reads; CloudFront is the only allowed reader.
+- **HTTPS-only & modern TLS:** Reduces downgrade risk; enforces encrypted transport.
+- **Least-privilege Terraform role:** Uses an SSO role (TerraformDeployer) with scoped permissions instead of broad admin.
+- **Evidence over claims:** Screenshots for identity, permissions, CloudTrail, and deployed resources.
+
+---
+
+## Evidence (screenshots)
+All images live in `infra/docs/evidence/`:
+
+### CLI identity and role
+- ![STS caller identity (TerraformDeployer)](infra/docs/evidence/01-cli-sts-terraformdeployer.png)
+
+### IAM Identity Center / Permission sets
+- ![Identity Center assignments](infra/docs/evidence/01-identity-center-assignments.png)
+- ![TerraformDeployer permission set - general](infra/docs/evidence/02a-terraformdeployer-general.png)
+- ![TerraformDeployer permission set - inline policy](infra/docs/evidence/02b-terraformdeployer-inline-policy.png)
+
+### Terraform proof
+- ![Terraform plan - no changes](infra/docs/evidence/02-terraform-plan-no-changes.png)
+
+### CloudTrail proof (auditability)
+- ![CloudTrail AssumeRole event](infra/docs/evidence/03-cloudtrail-assumerole.png)
+- ![CloudTrail Terraform action](infra/docs/evidence/04-cloudtrail-terraform-action.png)
+
+### AWS resources proof
+- ![S3 buckets](infra/docs/evidence/05a-s3-buckets.png)
+- ![CloudFront distribution](infra/docs/evidence/05b-cloudfront-distribution.png)
+- ![ACM certificate issued](infra/docs/evidence/05c-acm-certificate-issued.png)
+- ![Route53 hosted zone and records](infra/docs/evidence/05d-route53-hosted-zone.png)
+
+> If you share this repo publicly, consider blurring account IDs, hosted zone IDs, IPs, or emails in the screenshots.
+
+---
+
+## Roadmap / next improvements
+- Add baseline AWS WAF rules (rate limiting + managed rules).
+- Enable access logging (CloudFront and/or S3) and query via Athena.
+- Add cost guardrails (budgets + alarms).
+- Add CI for `terraform fmt/validate/plan` on PRs.
