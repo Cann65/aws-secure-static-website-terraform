@@ -4,17 +4,13 @@
 ![AWS](https://img.shields.io/badge/AWS-Cloud-FF9900?logo=amazonwebservices)
 ![CI](https://github.com/Cann65/aws-secure-static-website-terraform/actions/workflows/terraform-ci.yml/badge.svg)
 
-Secure AWS hosting for static build artifacts (React, Vite, Next.js export, etc.) using CloudFront with a private S3 origin. DNS is managed in Route 53, TLS comes from ACM (us-east-1). An evidence pack of screenshots shows the setup end to end: identity, permissions, Terraform idempotency, audit logging, and deployed resources.
-
----
+Terraform setup for hosting static sites (React, Vite, Next.js builds, whatever) on AWS. CloudFront in front, private S3 bucket behind it, Route 53 for DNS, ACM for the certificate. The repo includes screenshots showing everything actually works.
 
 ## What this covers
 
-**Platform side:** CloudFront + S3 + Route 53 + ACM wired together end-to-end. Remote Terraform state in S3 with optional DynamoDB locking. The module is reusable; drop it into other projects and just change the variables.
+CloudFront + S3 + Route 53 + ACM wired together. Remote Terraform state in S3 with optional DynamoDB locking. The module is reusable, just swap out the variables for a different domain.
 
-**Security side:** The S3 bucket stays private (no public website hosting). CloudFront is the only reader via Origin Access Control (OAC). HTTPS-only with a modern TLS policy. Terraform runs under a dedicated SSO role with scoped permissions. Everything is logged in CloudTrail.
-
----
+On the security side: S3 bucket is private (no public website hosting), CloudFront reads via OAC, HTTPS only, and Terraform runs under a scoped SSO role instead of admin. CloudTrail logs everything.
 
 ## Architecture
 
@@ -26,51 +22,40 @@ flowchart LR
     R53[Route 53] -->|Alias A| CF
 ```
 
-The key point: S3 stays private. CloudFront is the only reader, and users only ever hit CloudFront over HTTPS.
-
----
+S3 stays private. CloudFront is the only thing that reads from it.
 
 ## Repo structure
 
 ```
-.github/workflows/terraform-ci.yml   # CI: fmt, init, validate
+.github/workflows/terraform-ci.yml   # fmt, init, validate
 infra/
-  modules/static_site/               # Reusable Terraform module
-  envs/prod/                         # Prod environment + backend config
-  docs/evidence/                     # Screenshots
+  modules/static_site/               # the module
+  envs/prod/                         # prod config + backend
+  docs/evidence/                     # screenshots
 README.md
 ```
 
----
-
 ## Prerequisites
 
-- Terraform >= 1.6, AWS provider >= 5.x
-- A Route 53 hosted zone for your domain
-- An S3 bucket for Terraform state (DynamoDB lock table optional)
-- AWS credentials configured locally (SSO/Identity Center recommended)
-
----
+Terraform >= 1.6, AWS provider >= 5.x, a Route 53 hosted zone, an S3 bucket for state (DynamoDB lock optional), and AWS credentials configured (SSO recommended).
 
 ## Configuration
 
-Defaults live in `infra/envs/prod/variables.tf`. Override with `-var` or a `*.tfvars` file:
+Defaults are in `infra/envs/prod/variables.tf`. Override with `-var` or a tfvars file.
 
-| Variable                | What it does                                         | Example             |
-| ----------------------- | ---------------------------------------------------- | ------------------- |
-| `domain_name`           | Your website domain                                  | `example.com`       |
-| `hosted_zone_name`      | The Route 53 hosted zone                             | `example.com`       |
-| `bucket_name`           | S3 bucket for the static files                       | `example.com`       |
-| `enable_acm_validation` | Terraform creates the DNS validation records for ACM | `true`              |
-| `web_acl_id`            | Optional WAFv2 WebACL ARN                            | `arn:aws:wafv2:...` |
+| Variable                | What it does                             | Example             |
+| ----------------------- | ---------------------------------------- | ------------------- |
+| `domain_name`           | your domain                              | `example.com`       |
+| `hosted_zone_name`      | Route 53 zone                            | `example.com`       |
+| `bucket_name`           | S3 bucket for files                      | `example.com`       |
+| `enable_acm_validation` | Terraform creates DNS validation records | `true`              |
+| `web_acl_id`            | WAFv2 WebACL ARN (optional)              | `arn:aws:wafv2:...` |
 
-If you set `enable_acm_validation = true`, Terraform handles certificate validation automatically by creating the required Route 53 records. For WAF, the WebACL needs to be scoped to CLOUDFRONT and created in us-east-1.
-
----
+With `enable_acm_validation = true` Terraform handles certificate validation automatically. WAF needs to be CLOUDFRONT scoped in us-east-1.
 
 ## Deploy
 
-**PowerShell (Windows):**
+PowerShell:
 
 ```powershell
 aws sso login --profile <profile>
@@ -83,7 +68,7 @@ terraform plan -out plan.out
 terraform apply plan.out
 ```
 
-**Bash (Linux/macOS):**
+Bash:
 
 ```bash
 aws sso login --profile <profile>
@@ -95,116 +80,122 @@ terraform plan -out plan.out
 terraform apply plan.out
 ```
 
-After apply you get `cloudfront_domain` (the CloudFront URL) and `bucket_name` (where to upload your files).
-
----
+Outputs are `cloudfront_domain` and `bucket_name`.
 
 ## Upload your site
-
-Basic:
 
 ```bash
 npm run build
 aws s3 sync ./build s3://<bucket>/ --delete
 ```
 
-With proper caching (recommended for production):
+Better caching setup:
 
 ```bash
-# Assets get cached for a year
 aws s3 sync ./build s3://<bucket>/ --delete \
   --exclude "index.html" \
   --cache-control "public,max-age=31536000,immutable"
 
-# index.html gets a short cache so updates are visible quickly
 aws s3 cp ./build/index.html s3://<bucket>/index.html \
   --cache-control "public,max-age=60"
 ```
 
-If you need changes to show up immediately:
+Invalidate if needed:
 
 ```bash
 aws cloudfront create-invalidation --distribution-id <id> --paths "/*"
 ```
 
----
+## Security
 
-## Security summary
-
-| What                  | How                                      |
-| --------------------- | ---------------------------------------- |
-| S3 access             | Private bucket, CloudFront reads via OAC |
-| Transport             | HTTPS-only, TLS 1.2+                     |
-| Terraform permissions | Scoped SSO role, no admin access         |
-| Audit                 | CloudTrail logs all API activity         |
-
----
+S3 is private, CloudFront reads via OAC. HTTPS only with TLS 1.2+. Terraform uses a scoped SSO role, not admin. CloudTrail logs all API calls.
 
 ## Evidence
 
-All screenshots are in `infra/docs/evidence/`. They follow the chain: identity -> permissions -> Terraform -> audit trail -> deployed resources.
+Screenshots in `infra/docs/evidence/`. They go through: identity → permissions → Terraform → audit logs → deployed resources.
 
-> If you fork this repo, redact your account IDs, hosted zone IDs, IPs, and email addresses before making it public.
+If you fork this, redact account IDs, hosted zone IDs, IPs, and emails before sharing publicly.
 
 ### CLI identity
-`aws sts get-caller-identity` in PowerShell shows the session running under `AWSReservedSSO_TerraformDeployer`. Short-lived SSO tokens, not admin keys.  
-![PowerShell showing aws sts get-caller-identity with TerraformDeployer assumed role ARN](infra/docs/evidence/01-cli-sts-terraformdeployer.png)
+
+Output of `aws sts get-caller-identity` showing the session runs under `AWSReservedSSO_TerraformDeployer`. Not admin, not long-lived IAM keys, just a scoped SSO role with short-lived tokens.
+
+![CLI showing TerraformDeployer role](infra/docs/evidence/01-cli-sts-terraformdeployer.png)
 
 ### IAM Identity Center assignments
-Account assignments and permission sets (TerraformDeployer, WebsiteDeployer, AdministratorAccess); day-to-day work uses scoped roles, not admin.  
-![IAM Identity Center showing account assignments with TerraformDeployer, WebsiteDeployer, and Admin permission sets](infra/docs/evidence/01-identity-center-assignments.png)
+
+Identity Center console with the permission sets: TerraformDeployer for infra work, WebsiteDeployer for uploading content, AdministratorAccess for when you actually need it. Day-to-day stuff doesn't touch admin.
+
+![Identity Center assignments](infra/docs/evidence/01-identity-center-assignments.png)
 
 ### TerraformDeployer permission set
-Configuration view with session duration; managed, reusable deploy role in Identity Center.  
-![IAM Identity Center permission set details for TerraformDeployer with session duration](infra/docs/evidence/02a-terraformdeployer-general.png)
+
+The permission set config showing session duration and provisioning status. Managed in Identity Center, not some random IAM user.
+
+![TerraformDeployer permission set](infra/docs/evidence/02a-terraformdeployer-general.png)
 
 ### TerraformDeployer inline policy
-Scoped IAM policy JSON for S3 (state + site), DynamoDB (lock), Route 53, CloudFront, ACM. No wildcards.  
-![Inline IAM policy JSON showing scoped permissions for S3, DynamoDB, Route 53, CloudFront, and ACM](infra/docs/evidence/02b-terraformdeployer-inline-policy.png)
+
+The actual IAM policy. S3 for state and site buckets, DynamoDB for the lock table, Route 53, CloudFront, ACM. No wildcards, just what Terraform needs for this stack.
+
+![TerraformDeployer policy](infra/docs/evidence/02b-terraformdeployer-inline-policy.png)
 
 ### Terraform plan
-`terraform plan` ends with “No changes. Your infrastructure matches the configuration.” Confirms no drift.  
-![Terraform plan output showing no changes needed](infra/docs/evidence/02-terraform-plan-no-changes.png)
 
-### CloudTrail: SSO session
-`AssumeRoleWithSAML` event with timestamp and role ARN; every session is logged and traceable.  
-![CloudTrail event details for AssumeRoleWithSAML showing SSO federation](infra/docs/evidence/03-cloudtrail-assumerole.png)
+`terraform plan` output with "No changes. Your infrastructure matches the configuration." AWS matches the code, no drift.
 
-### CloudTrail: Terraform activity
-CloudFront API calls made by Terraform, visible in CloudTrail; actions are traceable.  
-![CloudTrail event history showing CloudFront API calls from the TerraformDeployer session](infra/docs/evidence/04-cloudtrail-terraform-action.png)
+![Terraform plan](infra/docs/evidence/02-terraform-plan-no-changes.png)
+
+### CloudTrail SSO session
+
+CloudTrail event for `AssumeRoleWithSAML` when the SSO session was created. Timestamp, role ARN, everything logged.
+
+![CloudTrail AssumeRole](infra/docs/evidence/03-cloudtrail-assumerole.png)
+
+### CloudTrail Terraform activity
+
+CloudTrail showing CloudFront API calls like `GetDistribution`, `ListTagsForResource`. All tied to the TerraformDeployer session. You can trace who did what and when.
+
+![CloudTrail API activity](infra/docs/evidence/04-cloudtrail-terraform-action.png)
 
 ### S3 buckets
-Website bucket and Terraform state bucket are separate (regions, timestamps).  
-![S3 bucket list showing the website content bucket and the Terraform state bucket](infra/docs/evidence/05a-s3-buckets.png)
+
+Two buckets: one for website content, one for Terraform state. Separate on purpose, different lifecycles.
+
+![S3 buckets](infra/docs/evidence/05a-s3-buckets.png)
 
 ### CloudFront distribution
-Distribution is deployed/enabled, custom domains configured, origin is the private S3 bucket.  
-![CloudFront distribution with deployed status, custom domains, and S3 origin](infra/docs/evidence/05b-cloudfront-distribution.png)
+
+Distribution is deployed, custom domains configured, S3 origin set up. This is what serves the traffic.
+
+![CloudFront distribution](infra/docs/evidence/05b-cloudfront-distribution.png)
 
 ### ACM certificate
-Issued in us-east-1 for root + www; required for CloudFront HTTPS.  
-![ACM certificate in us-east-1 showing issued status for root and www domains](infra/docs/evidence/05c-acm-certificate-issued.png)
+
+Certificate in us-east-1 (CloudFront requirement), issued, covers root and www.
+
+![ACM certificate](infra/docs/evidence/05c-acm-certificate-issued.png)
 
 ### Route 53 records
-A/AAAA alias records for root and www pointing to CloudFront; completes DNS -> CDN -> S3.  
-![Route 53 hosted zone with A/AAAA alias records pointing to CloudFront](infra/docs/evidence/05d-route53-hosted-zone.png)
 
----
+A/AAAA alias records for root and www pointing to CloudFront. Domain → Route 53 → CloudFront → S3.
+
+![Route 53 records](infra/docs/evidence/05d-route53-hosted-zone.png)
 
 ## CI
 
-`.github/workflows/terraform-ci.yml` runs on every push/PR:
+`.github/workflows/terraform-ci.yml` runs on push and PR:
+
 - `terraform fmt -check -recursive`
 - `terraform init -backend=false`
 - `terraform validate`
 
----
+No AWS credentials needed, just syntax checks.
 
 ## Roadmap
 
-- [ ] CloudFront/S3 access logging + Athena for queries
-- [ ] WAF baseline rules (rate limiting, AWS managed rules)
+- [ ] Access logging + Athena
+- [ ] WAF rules
 - [ ] Budget alerts
-- [ ] Security scanning in CI (tflint, tfsec, checkov)
-- [ ] `terraform.tfvars.example` for easier onboarding
+- [ ] tflint/tfsec/checkov in CI
+- [ ] terraform.tfvars.example
