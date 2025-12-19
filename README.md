@@ -2,7 +2,7 @@
 
 ![Terraform](https://img.shields.io/badge/Terraform-%3E%3D1.6-623CE4?logo=terraform)
 ![AWS](https://img.shields.io/badge/AWS-Cloud-FF9900?logo=amazonwebservices)
-![CI](https://github.com/Cann65/aws-secure-static-website-terraform/actions/workflows/terraform-ci.yml/badge.svg)
+![CI](https://github.com/Cann65/aws-secure-static-website-terraform/actions/workflows/terraform.yml/badge.svg?branch=main)
 
 Secure-by-default hosting for static site build output (React/Vite/Next.js export/Hugo/plain HTML) on AWS: CloudFront (CDN + TLS) -> private S3 (origin), Route 53 (DNS), ACM (certificate in us-east-1). This repo is intentionally small and auditable. It includes an evidence pack (screenshots) that proves identity, permissions, Terraform results, audit logs, and deployed resources.
 
