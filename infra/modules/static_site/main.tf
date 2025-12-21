@@ -3,11 +3,6 @@ data "aws_route53_zone" "zone" {
 }
 
 locals {
-  cert_domains = toset([
-    var.domain_name,
-    "www.${var.domain_name}"
-  ])
-
   s3_origin_domain = aws_s3_bucket.site.bucket_regional_domain_name
   origin_id        = "s3-${aws_s3_bucket.site.bucket}"
 }
@@ -22,6 +17,33 @@ resource "aws_s3_bucket_public_access_block" "site" {
   block_public_policy     = true
   ignore_public_acls      = true
   restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_versioning" "site" {
+  bucket = aws_s3_bucket.site.id
+
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "site" {
+  bucket = aws_s3_bucket.site.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+    bucket_key_enabled = true
+  }
+}
+
+resource "aws_s3_bucket_ownership_controls" "site" {
+  bucket = aws_s3_bucket.site.id
+
+  rule {
+    object_ownership = "BucketOwnerEnforced"
+  }
 }
 
 resource "aws_acm_certificate" "cert" {
@@ -114,7 +136,7 @@ resource "aws_cloudfront_distribution" "cdn" {
   viewer_certificate {
     acm_certificate_arn      = aws_acm_certificate.cert.arn
     ssl_support_method       = "sni-only"
-    minimum_protocol_version = "TLSv1.3_2025"
+    minimum_protocol_version = "TLSv1.2_2021"
   }
 
   web_acl_id = var.web_acl_id
