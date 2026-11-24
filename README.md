@@ -1,8 +1,8 @@
 # AWS Secure Static Website (Terraform)
 
-![Terraform](https://img.shields.io/badge/Terraform-%3E%3D1.6-623CE4?logo=terraform)
+![Terraform](https://img.shields.io/badge/Terraform-%3E%3D1.10-623CE4?logo=terraform)
 ![AWS](https://img.shields.io/badge/AWS-Cloud-FF9900?logo=amazonwebservices)
-![CI](https://github.com/Cann65/aws-secure-static-website-terraform/actions/workflows/terraform.yml/badge.svg?branch=main)
+![CI](https://github.com/Cann65/aws-secure-static-website-terraform/actions/workflows/terraform.yml/badge.svg?branch=master)
 
 Secure-by-default hosting for static site build output (React/Vite/Next.js export/Hugo/plain HTML) on AWS: CloudFront (CDN + TLS) -> private S3 (origin), Route 53 (DNS), ACM (certificate in us-east-1). This repo is intentionally small and auditable. It includes an evidence pack (screenshots) that proves identity, permissions, Terraform results, audit logs, and deployed resources.
 
@@ -37,7 +37,7 @@ Secure-by-default hosting for static site build output (React/Vite/Next.js expor
 
 ### Cloud fundamentals (end-to-end)
 - CloudFront + S3 + Route 53 + ACM wired together
-- Remote Terraform state in S3 (optional DynamoDB lock table)
+- Remote Terraform state in S3 with S3 lock files
 - A reusable module with parameters for domain/zone/bucket (plus optional WAF and ACM DNS validation)
 
 ### Security mindset (practical)
@@ -63,16 +63,24 @@ flowchart LR
 
 Key idea: S3 stays private; CloudFront is the only public entry point.
 
+Validate the example without AWS credentials or remote state:
+
+```bash
+terraform fmt -check -recursive infra
+terraform -chdir=infra/envs/prod init -backend=false
+terraform -chdir=infra/envs/prod validate
+```
+
+For deployment, provide your own state bucket settings when initializing the S3 backend. The bucket must already exist and the deployment role needs read/write access to the assigned state key and read/write/delete access to its lock file.
+
 ### Repository structure
 
 ```
-.github/workflows/terraform-ci.yml   # CI: fmt, init (no backend), validate
+.github/workflows/terraform.yml   # CI: fmt, init (no backend), validate
 infra/
   modules/static_site/               # Reusable Terraform module
-  modules/waf_baseline/              # Optional CloudFront-scoped WAF baseline
   envs/prod/                         # Example environment + remote backend
   docs/evidence/                     # Screenshot evidence pack
-  docs/architecture/                 # Place exported PNG/SVG architecture diagrams here
 README.md
 ```
 
@@ -80,7 +88,7 @@ README.md
 
 ## ✅ Prerequisites
 
-- Terraform >= 1.6
+- Terraform >= 1.10
 - AWS Provider >= 5.x
 - A registered domain with an existing Route 53 hosted zone
 - A dedicated S3 bucket for Terraform remote state (and optional DynamoDB lock table)
@@ -115,7 +123,7 @@ If `enable_acm_validation = true`, Terraform creates the required DNS validation
 
 ## 🛡️ WAF (optional)
 
-If you attach a WAF, `web_acl_id` must be a WAFv2 WebACL ARN with `scope = CLOUDFRONT` (managed in `us-east-1`). A minimal baseline module is provided in `infra/modules/waf_baseline/`; pass its ARN into `web_acl_id` when you want it enforced.
+To attach an existing AWS WAF web ACL, pass its ARN through `web_acl_id`. Use a WAFv2 ACL with `scope = CLOUDFRONT` managed in `us-east-1`.
 
 ---
 
@@ -255,7 +263,7 @@ The evidence follows the flow: Identity -> Access model -> Permissions -> Terraf
 
 ## ✅ CI
 
-The workflow `.github/workflows/terraform-ci.yml` runs on push/PR:
+The workflow `.github/workflows/terraform.yml` runs on push/PR:
 
 - `terraform fmt -check -recursive`
 - `terraform init -backend=false`

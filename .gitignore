@@ -3,6 +3,5 @@
 *.tfstate.*
 crash.log
 *.tfvars
-.terraform.lock.hcl
 plan.out
 *.plan

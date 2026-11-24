@@ -1,0 +1,4 @@
+domain_name           = "example.com"
+hosted_zone_name      = "example.com"
+bucket_name           = "replace-with-a-globally-unique-bucket-name"
+enable_acm_validation = true
